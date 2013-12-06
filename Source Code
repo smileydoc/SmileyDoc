@@ -1,0 +1,679 @@
+#include <SPI.h>
+#include <SoftwareSerial.h>
+
+//Add the SdFat Libraries
+#include <SdFat.h>
+#include <SdFatUtil.h>
+
+//and the MP3 Shield Library
+#include <SFEMP3Shield.h>
+
+// Below is not needed if interrupt driven. Safe to remove if not using.
+#if defined(USE_MP3_REFILL_MEANS) && USE_MP3_REFILL_MEANS == USE_MP3_Timer1
+  #include <TimerOne.h>
+#elif defined(USE_MP3_REFILL_MEANS) && USE_MP3_REFILL_MEANS == USE_MP3_SimpleTimer
+  #include <SimpleTimer.h>
+#endif
+SdFat sd;
+SFEMP3Shield MP3player;
+
+SoftwareSerial rfid(10, 11);
+SoftwareSerial mySerial(15,14);
+
+//Prototypes
+void check_for_notag(void);
+void halt(void);
+void parse(void);
+void print_serial(void);
+void read_serial(void);
+void seek(void);
+void set_flag(void);
+
+//Global var
+int flag = 0;
+int Str1[11];
+int songNum; 
+int trigger = 0; 
+int global_hr = 0; 
+int global_min = 0; 
+int global_sec = 0; 
+int global_msec = 0; 
+char minstring[10], secstring[10];
+
+//INIT
+void setup()
+{
+  mySerial.begin(9600); 
+  clearScreen();
+  if(!sd.begin(SD_SEL, SPI_HALF_SPEED)) sd.initErrorHalt();
+  if(!sd.chdir("/")) sd.errorHalt("sd.chdir");
+  MP3player.begin();
+  pinMode(15, OUTPUT); 
+
+  randomSeed(analogRead(0));
+  // set the data rate for the SoftwareSerial ports
+  rfid.begin(19200);
+  delay(10);
+  halt();
+}
+
+
+
+//MAIN
+void loop()
+{
+  read_serial();
+  digitalWrite(15, LOW);
+
+  while (flag == 1){
+    if (trigger == 1){
+       parse_menu(9);
+    }
+    
+    songNum = random(1, 8); 
+    parse_menu(songNum);
+    timer();
+
+    global_hr = 0; 
+    global_min = 0; 
+    global_sec = 0; 
+    global_msec = 0; 
+    flag = 0; 
+    clearScreen(); 
+  }
+  
+  global_msec++;
+  if (global_msec > 1000){
+    global_msec = 0; 
+    global_sec ++; 
+    if (global_sec > 60){
+      global_sec = 0; 
+      global_min ++; 
+      if (global_min > 60) {
+      global_min = 0;
+      global_hr ++; 
+        if (global_hr > 16) {
+        trigger =1; 
+        }
+      }
+    }
+  }
+}
+
+
+void clearScreen()
+{
+  mySerial.write(254); 
+  mySerial.write(128);
+  
+  mySerial.write("                "); 
+  mySerial.write("                "); 
+
+}
+
+void timer()
+{
+    mySerial.write(254); 
+    mySerial.write(128);
+    mySerial.write("Minutes:   2    "); 
+    mySerial.write("Seconds:   0    "); 
+    digitalWrite(15, HIGH); 
+    delay(1000); 
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   59   ");
+    digitalWrite(15, LOW); 
+    delay(1000); 
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   58   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   57   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   56   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   55   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   54   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   53   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   52   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   51   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   50   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   49   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   48   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   47   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   46   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   45   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   44   ");
+    digitalWrite(15, HIGH); 
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   43   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   42   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    ");
+    mySerial.write("Seconds:   41   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   40   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   39   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   38   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   37   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   36   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   35   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   34   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   33   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   32   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   31   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   30   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   29   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   28   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   27   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   26   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   25   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   24   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   23   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   22   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   21    "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   20   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   19   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   18   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   17   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   16   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   15   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   14   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   13   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   12   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   11   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   10   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   9    "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   8    "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   7    "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   6    "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   5    "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   4    "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   3    "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   2    "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   1    "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   1    "); 
+    mySerial.write("Seconds:   0    "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   59   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   58   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   57   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   56   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   55   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   54   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   53   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   52   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   51   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   50   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   49   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   48   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   47   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   46   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   45   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   44   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   43   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   42   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   41   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   40   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   39   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   38   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   37   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   36   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   35   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   34   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   33   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   32   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   31   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   30   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   29   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   28   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   27   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   26   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   25   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   24   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   23   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   22   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   21   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   20   "); 
+    digitalWrite(15, HIGH);
+    
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   19   "); 
+    digitalWrite(15, LOW);
+    
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   18   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   17   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   16   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   15   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   14   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   13   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   12   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   11   "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   10   "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   9    "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   8    "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   7    "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   6    "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   5    "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   4    "); 
+    digitalWRite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   3    "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   2    "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   1    "); 
+    digitalWrite(15, LOW);
+    delay(1000);
+    mySerial.write("Minutes:   0    "); 
+    mySerial.write("Seconds:   0    "); 
+    digitalWrite(15, HIGH);
+    delay(1000);
+    mySerial.write("     DONE!!     "); 
+    mySerial.write("   GOOD JOB!!   "); 
+    digitalWrite(15, HIGH);
+    delay(3000);
+}
+
+void check_for_notag()
+{
+  seek();
+  delay(10);
+  parse();
+  set_flag();
+
+  if(flag = 1){
+    seek();
+    delay(10);
+    parse();
+  }
+}
+
+
+void halt()
+{
+ //Halt tag
+  rfid.write((uint8_t)255);
+  rfid.write((uint8_t)0);
+  rfid.write((uint8_t)1);
+  rfid.write((uint8_t)147);
+  rfid.write((uint8_t)148);
+}
+
+void parse()
+{
+  while(rfid.available()){
+    if(rfid.read() == 255){
+      for(int i=1;i<11;i++){
+        Str1[i]= rfid.read();
+      }
+    }
+  }
+}
+
+void read_serial()
+{
+  seek();
+  delay(10);
+  parse();
+  set_flag();
+  delay(100);
+}
+
+void seek()
+{
+  //search for RFID tag
+  rfid.write((uint8_t)255);
+  rfid.write((uint8_t)0);
+  rfid.write((uint8_t)1);
+  rfid.write((uint8_t)130);
+  rfid.write((uint8_t)131);
+  delay(10);
+}
+
+void set_flag()
+{
+  if(Str1[2] == 6){
+    flag++;
+  }
+  if(Str1[2] == 2){
+    flag = 0;
+  }
+}
+
+void parse_menu(byte key_command) {
+  MP3player.playTrack(key_command);
+  flag = 0;
+}
